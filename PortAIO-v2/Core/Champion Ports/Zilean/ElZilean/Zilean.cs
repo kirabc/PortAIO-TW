@@ -1,19 +1,24 @@
-﻿namespace ElZilean
+namespace ElZilean
 {
     using System;
-    using System.Collections.Generic;
-    using System.Drawing;
     using System.Linq;
     using System.Net;
+    using System.Collections.Generic;
+    using System.Drawing;
 
     using EloBuddy;
     using LeagueSharp.Common;
-    using SebbyLib;
+    using EloBuddy.SDK.Menu;
+    using EloBuddy.SDK.Menu.Values;
+    using EloBuddy.SDK;
+    using Spell = LeagueSharp.Common.Spell;
+    using Utility = LeagueSharp.Common.Utility;
+    using Damage = LeagueSharp.Common.Damage;
 
-    
 
     internal class Zilean
     {
+
         #region Constructors and Destructors
 
         static Zilean()
@@ -74,6 +79,7 @@
 
         #region Public Properties
 
+
         /// <summary>
         ///     Gets or sets the spells.
         /// </summary>
@@ -114,14 +120,7 @@
         ///     The menu
         /// </value>
         private static Menu Menu { get; set; }
-
-        /// <summary>
-        ///     Gets or sets the orbwalker
-        /// </summary>
-        /// <value>
-        ///     The orbwalker
-        /// </value>
-        private static Orbwalking.Orbwalker Orbwalker { get; set; }
+        public static Menu comboMenu, harassMenu, fleeMenu, ultMenu, laneMenu, drawingsMenu, miscMenu, initiatorMenu;
 
         /// <summary>
         ///     Gets the player.
@@ -137,7 +136,6 @@
         /// <value>
         ///     The Q spell
         /// </value>
-        private static Spell Q { get; set; }
 
         /// <summary>
         ///     Gets or sets the R spell.
@@ -156,7 +154,7 @@
         private static Spell W { get; set; }
 
         #endregion
-
+        static EloBuddy.SDK.Spell.Skillshot Q;
         #region Public Methods and Operators
 
         /// <summary>
@@ -167,7 +165,7 @@
         {
             try
             {
-                if (!Player.IsChampion("Zilean"))
+                if (Player.ChampionName != "Zilean")
                 {
                     return;
                 }
@@ -185,12 +183,11 @@
 
                 IncomingDamageManager.Skillshots = true;
 
-                Q = new Spell(SpellSlot.Q, 900f - 100f);
-                W = new Spell(SpellSlot.W, Orbwalking.GetRealAutoAttackRange(Player));
+
+                Q = new EloBuddy.SDK.Spell.Skillshot(SpellSlot.Q, 900 + 100, EloBuddy.SDK.Enumerations.SkillShotType.Circular, 300, 2000, 100);
+                W = new Spell(SpellSlot.W, Player.GetAutoAttackRange(Player));
                 E = new Spell(SpellSlot.E, 700f);
                 R = new Spell(SpellSlot.R, 900f);
-
-                Q.SetSkillshot(0.7f, 140f - 25f, int.MaxValue, false, SkillshotType.SkillshotCircle);
 
                 GenerateMenu();
 
@@ -198,9 +195,7 @@
                 Drawing.OnDraw += OnDraw;
                 Interrupter2.OnInterruptableTarget += OnInterruptableTarget;
                 Obj_AI_Base.OnProcessSpellCast += OnProcessSpellCast;
-                Obj_AI_Base.OnSpellCast += OnProcessSpellCast;
-                Obj_AI_Base.OnBasicAttack += OnProcessSpellCast;
-                Orbwalking.BeforeAttack += BeforeAttack;
+                Orbwalker.OnPreAttack += BeforeAttack;
             }
             catch (Exception exception)
             {
@@ -212,23 +207,6 @@
 
         #region Methods
 
-        private static HitChance GetHitchance()
-        {
-            switch (Menu.Item("Prediction.Hitchance").GetValue<StringList>().SelectedIndex)
-            {
-                case 0:
-                    return HitChance.Low;
-                case 1:
-                    return HitChance.Medium;
-                case 2:
-                    return HitChance.High;
-                case 3:
-                    return HitChance.VeryHigh;
-                default:
-                    return HitChance.Medium;
-            }
-        }
-
         /// <summary>
         ///     Creates the menu
         /// </summary>
@@ -239,130 +217,79 @@
         {
             try
             {
-                Menu = new Menu("ElZilean", "ElZilean", true);
+                Menu = MainMenu.AddMenu("ElZilean", "ElZilean");
 
-                var targetselectorMenu = new Menu("Target Selector", "Target Selector");
+
+                comboMenu = Menu.AddSubMenu("Combo", "Combo");
                 {
-                    TargetSelector.AddToMenu(targetselectorMenu);
+                    comboMenu.Add("ElZilean.Combo.Q", new CheckBox("Use Q", true));
+                    comboMenu.Add("ElZilean.Combo.Focus.Bomb", new CheckBox("Focus target with Q", true));
+                    comboMenu.Add("ElZilean.Combo.W", new CheckBox("Use W", true));
+                    comboMenu.Add("ElZilean.Combo.E", new CheckBox("Use E", true));
+                    comboMenu.Add("ElZilean.Ignite", new CheckBox("Use Ignite", true));
+                    comboMenu.Add("ElZilean.Combo.W2", new CheckBox("Always reset Q", false));
+                    comboMenu.Add("ElZilean.DoubleBombMouse", new KeyBind("Double bomb to mouse", false, KeyBind.BindTypes.HoldActive, 'Y'));
                 }
 
-                Menu.AddSubMenu(targetselectorMenu);
 
-                var orbwalkMenu = new Menu("Orbwalker", "Orbwalker");
+                harassMenu = Menu.AddSubMenu("Harass", "Harass");
                 {
-                    Orbwalker = new Orbwalking.Orbwalker(orbwalkMenu);
+                    harassMenu.Add("ElZilean.Harass.Q", new CheckBox("Use Q", true));
+                    harassMenu.Add("ElZilean.Harass.W", new CheckBox("Use W", true));
                 }
 
-                Menu.AddSubMenu(orbwalkMenu);
 
-
-                var predictionMenu = new Menu("Prediction", "Prediction");
+                ultMenu = Menu.AddSubMenu("Ultimate", "Ultimate");
                 {
-                    predictionMenu.AddItem(
-                        new MenuItem("Prediction.Hitchance", "Hitchance: ").SetValue(
-                            new StringList(new[] { "Low", "Medium", "High", "Very High" }, 3)))
-                        .SetTooltip("Setting for the common prediction");
-                    predictionMenu.AddItem(new MenuItem("Prediction.type", "Prediction: ")).SetValue(new StringList(new[] { "Common", "Rewinding", "Sebby" }, 1));
-                }
-
-                Menu.AddSubMenu(predictionMenu);
-
-                var comboMenu = new Menu("Combo", "Combo");
-                {
-                    comboMenu.SubMenu("Q Manager").AddItem(new MenuItem("ElZilean.Combo.Q", "Use Q").SetValue(true));
-                    comboMenu.SubMenu("Q Manager").AddItem(new MenuItem("ElZilean.Combo.Focus.Bomb", "Focus target with Q").SetValue(true));
-                    comboMenu.SubMenu("Q Manager").AddItem(new MenuItem("ElZilean.Combo.W2", "Always reset Q").SetValue(false)).SetTooltip("Always reset Q even when the target is not marked");
-
-                    comboMenu.SubMenu("Q Manager")
-                        .AddItem(new MenuItem("Q.Automatically", "Automatically cast Q if 2 or more").SetValue(new StringList(new[] { "Never", "Always", "Combo"}, 0))).SetTooltip("This option is only available for the 'Rewinding' prediction");
-
-
-                    comboMenu.AddItem(new MenuItem("ElZilean.Combo.W", "Use W").SetValue(true));   
-                    comboMenu.AddItem(new MenuItem("ElZilean.Combo.E", "Use E").SetValue(true));
-                    comboMenu.AddItem(new MenuItem("ElZilean.Ignite", "Use Ignite").SetValue(true));
-                    comboMenu.AddItem(
-                        new MenuItem("ElZilean.DoubleBombMouse", "Double bomb to mouse").SetValue(
-                            new KeyBind("Y".ToCharArray()[0], KeyBindType.Press)));
-                }
-
-                Menu.AddSubMenu(comboMenu);
-
-                var harassMenu = new Menu("Harass", "Harass");
-                {
-                    harassMenu.AddItem(new MenuItem("ElZilean.Harass.Q", "Use Q").SetValue(true));
-                    harassMenu.AddItem(new MenuItem("ElZilean.Harass.W", "Use W").SetValue(true));
-                }
-                Menu.AddSubMenu(harassMenu);
-
-                var ultimateMenu = new Menu("Ultimate", "Ultimate");
-                {
-                    ultimateMenu.AddItem(new MenuItem("min-health", "Health percentage").SetValue(new Slider(20, 1)));
-                    ultimateMenu.AddItem(
-                        new MenuItem("min-damage", "Heal on % incoming damage").SetValue(new Slider(20, 1)));
-                    ultimateMenu.AddItem(new MenuItem("ElZilean.Ultimate.R", "Use R").SetValue(true));
-                    ultimateMenu.AddItem(new MenuItem("blank-line", ""));
+                    ultMenu.Add("min-health", new Slider("Health percentage", 20, 0, 100));
+                    ultMenu.Add("min-damage", new Slider("Heal on % incoming damage", 20, 0, 100));
+                    ultMenu.Add("ElZilean.Ultimate.R", new CheckBox("Use R", true));
+                    ultMenu.AddLabel("Ultimate Wihtelist");
                     foreach (var x in HeroManager.Allies)
                     {
-                        ultimateMenu.AddItem(new MenuItem($"R{x.ChampionName}", "Use R on " + x.ChampionName))
-                            .SetValue(true);
+                        ultMenu.Add($"R{x.ChampionName}", new CheckBox("Use R on " + x.ChampionName));
                     }
                 }
-                Menu.AddSubMenu(ultimateMenu);
 
-                var laneclearMenu = new Menu("Laneclear", "Laneclear");
+
+                laneMenu = Menu.AddSubMenu("Laneclear", "Laneclear");
                 {
-                    laneclearMenu.AddItem(new MenuItem("ElZilean.laneclear.Q", "Use Q").SetValue(true));
-                    laneclearMenu.AddItem(new MenuItem("ElZilean.laneclear.QMouse", "Cast Q to mouse").SetValue(false))
-                        .SetTooltip("Cast Q towards your mouse position");
-                    laneclearMenu.AddItem(new MenuItem("ElZilean.laneclear.W", "Use W").SetValue(true));
-                    laneclearMenu.AddItem(
-                        new MenuItem("ElZilean.laneclear.Mana", "Minimum mana").SetValue(new Slider(20)));
+                    laneMenu.Add("ElZilean.laneclear.Q", new CheckBox("Use Q", true));
+                    laneMenu.Add("ElZilean.laneclear.W", new CheckBox("Use W", true));
+                    laneMenu.Add("ElZilean.laneclear.Mana", new Slider("Minimum mana", 20, 0, 100));
+                    laneMenu.Add("ElZilean.laneclear.QMouse", new CheckBox("Cast Q to mouse", false));
                 }
 
-                Menu.AddSubMenu(laneclearMenu);
 
-                var initiatorMenu = new Menu("Initiators", "Initiators");
+                initiatorMenu = Menu.AddSubMenu("Initiators", "Initiators");
                 {
                     // todo filter out champs that have no speed stuff
                     foreach (var ally in HeroManager.Allies)
                     {
-                        initiatorMenu.AddItem(
-                            new MenuItem($"Initiator{ally.CharData.BaseSkinName}", "Initiator E: " + ally.ChampionName))
-                            .SetValue(true);
+                        initiatorMenu.Add($"Initiator{ally.CharData.BaseSkinName}", new CheckBox("Initiator E: " + ally.ChampionName, true));
                     }
                 }
 
-                Menu.AddSubMenu(initiatorMenu);
 
-                var fleeMenu = new Menu("Flee", "Flee");
+                fleeMenu = Menu.AddSubMenu("Flee", "Flee");
                 {
-                    fleeMenu.AddItem(
-                        new MenuItem("ElZilean.Flee.Key", "Flee key").SetValue(
-                            new KeyBind("A".ToCharArray()[0], KeyBindType.Press)));
-                    fleeMenu.AddItem(new MenuItem("ElZilean.Flee.Mana", "Minimum mana").SetValue(new Slider(20)));
+                    fleeMenu.Add("ElZilean.Flee.Mana", new Slider("Minimum mana", 20, 0, 100));
                 }
 
-                Menu.AddSubMenu(fleeMenu);
-
-                var drawingsMenu = new Menu("Drawings", "Drawings");
+                miscMenu = Menu.AddSubMenu("Misc", "Misc");
                 {
-                    drawingsMenu.AddItem(new MenuItem("ElZilean.Draw.Off", "Disable drawings").SetValue(false));
-                    drawingsMenu.AddItem(new MenuItem("ElZilean.Draw.Q", "Draw Q").SetValue(new Circle()));
+                    miscMenu.Add("ElZilean.Combo.AA", new CheckBox("Don't AA before Q", true));
+                    miscMenu.Add("ElZilean.Q.Stun", new CheckBox("Auto Q on stunned targets", true));
+                    miscMenu.Add("ElZilean.Q.Interrupt", new CheckBox("Interrupt spells with Q", true));
+                    miscMenu.Add("ElZilean.E.Slow", new CheckBox("Speed up slowed allies", true));
                 }
 
-                Menu.AddSubMenu(drawingsMenu);
-
-                var miscMenu = new Menu("Misc", "Misc");
+                drawingsMenu = Menu.AddSubMenu("Drawings", "Drawings");
                 {
-                    miscMenu.AddItem(new MenuItem("ElZilean.Combo.AA", "Don't AA before Q").SetValue(true));
-                    miscMenu.AddItem(new MenuItem("ElZilean.Q.Stun", "Auto Q on stunned targets").SetValue(false));
-                    miscMenu.AddItem(new MenuItem("ElZilean.Q.Interrupt", "Interrupt spells with Q").SetValue(true));
-                    miscMenu.AddItem(new MenuItem("ElZilean.E.Slow", "Speed up slowed allies").SetValue(true));
+                    drawingsMenu.Add("ElZilean.Draw.Off", new CheckBox("Disable drawings", false));
+                    drawingsMenu.Add("ElZilean.Draw.Q", new CheckBox("Draw Q", true));
                 }
 
-                Menu.AddSubMenu(miscMenu);
-
-                Menu.AddToMainMenu();
             }
             catch (Exception exception)
             {
@@ -371,15 +298,31 @@
         }
 
 
+        public static bool getCheckBoxItem(Menu m, string item)
+        {
+            return m[item].Cast<CheckBox>().CurrentValue;
+        }
+
+        public static int getSliderItem(Menu m, string item)
+        {
+            return m[item].Cast<Slider>().CurrentValue;
+        }
+
+        public static bool getKeyBindItem(Menu m, string item)
+        {
+            return m[item].Cast<KeyBind>().CurrentValue;
+        }
+
+
         /// <summary>
         ///     
         /// </summary>
         /// <param name="args"></param>
-        private static void BeforeAttack(Orbwalking.BeforeAttackEventArgs args)
+        private static void BeforeAttack(AttackableUnit target, Orbwalker.PreAttackArgs args)
         {
-            if (IsActive("ElZilean.Combo.AA"))
+            if (getCheckBoxItem(miscMenu, "ElZilean.Combo.AA"))
             {
-                if (Orbwalker.ActiveMode == Orbwalking.OrbwalkingMode.Combo || Orbwalker.ActiveMode == Orbwalking.OrbwalkingMode.Mixed)
+                if (Orbwalker.ActiveModesFlags.HasFlag(Orbwalker.ActiveModes.Combo) || Orbwalker.ActiveModesFlags.HasFlag(Orbwalker.ActiveModes.Harass))
                 {
                     if (Q.IsReady())
                     {
@@ -402,7 +345,7 @@
             var kSableEnemy =
                 HeroManager.Enemies.FirstOrDefault(
                     hero =>
-                    hero.IsValidTarget(550f) && !hero.HasBuff("summonerdot") && !hero.IsZombie
+                    hero.LSIsValidTarget(550f) && !hero.HasBuff("summonerdot") && !hero.IsZombie
                     && Player.GetSummonerSpellDamage(hero, Damage.SummonerSpell.Ignite) >= hero.Health);
 
             if (kSableEnemy != null)
@@ -411,35 +354,27 @@
             }
         }
 
-        /// <summary>
-        ///     Gets the active menu item
-        /// </summary>
-        /// <value>
-        ///     The menu item
-        /// </value>
-        private static bool IsActive(string menuName)
-        {
-            return Menu.Item(menuName).IsActive();
-        }
-
         private static void MouseCombo()
         {
-              if (getCheckBoxItem(comboMenu, "ElZilean.Combo.Q"))
+            if (getCheckBoxItem(comboMenu, "ElZilean.Combo.Q"))
             {
                 Q.Cast(Game.CursorPos);
                  if (!Q.IsReady())
                     { 
                         W.Cast();
                     }
+                    return;
+                
             }
         }
 
         /// <summary>
         ///     Combo logic
         /// </summary>
+        
         private static void OnCombo()
         {
-           {
+            {
                 var target = TargetSelector.GetTarget(Q.Range, DamageType.Magical);
                 var pred666 = Q.GetPrediction(target);
                 
@@ -471,7 +406,7 @@
                     }
                     return;
                 }
-                
+                /*
                 var isBombed2 = HeroManager.Enemies.Find(x => x.HasBuff("ZileanQEnemyBomb") && x.IsValidTarget(Q.Range));
                 if (getCheckBoxItem(comboMenu, "ElZilean.Combo.Q") && Q.IsReady() && target.IsValidTarget(Q.Range) && !isBombed2.IsValidTarget(Q.Range))
                 {
@@ -493,7 +428,7 @@
                         Utility.DelayAction.Add(50, () => Q.Cast(pred.CastPosition));
                     }
                 }
-                
+                */
                 if (!Q.IsReady())
                 {
                     if (QDmg(target) >= target.Health + target.HPRegenRate && W.IsReady())
@@ -505,7 +440,7 @@
                         
                     }
                 }
-               
+                /*
                 // Check if target has a bomb
                 var isBombed = HeroManager.Enemies.Find(x => x.HasBuff("ZileanQEnemyBomb") && x.IsValidTarget(Q.Range));
                 if (!isBombed.IsValidTarget())
@@ -544,7 +479,7 @@
                         E.Cast(closestEnemy);
                     }
                 }
-              
+                /*
                 if (getCheckBoxItem(comboMenu, "ElZilean.Ignite") && isBombed != null)
                 {
                     if (Player.GetSpellSlot("summonerdot") == SpellSlot.Unknown)
@@ -559,26 +494,37 @@
                         }
                     }
                 }
-              
+                */
             }
         }
+
 
         /// <summary>
         ///     Called when the game draws itself.
         /// </summary>
         /// <param name="args">The <see cref="EventArgs" /> instance containing the event data.</param>
-        private static void OnDraw(EventArgs args)
+        internal static float QDmg(Obj_AI_Base unit)
         {
-            if (IsActive("ElZilean.Draw.Off"))
+            if (unit == null || unit.IsDead)
+            {
+                return 0;
+            }
+            return
+                (float)((ObjectManager.Player.CalcDamage(unit, DamageType.Magical,
+                        new[] { 75, 115, 165, 230, 300 }[ObjectManager.Player.Spellbook.GetSpell(SpellSlot.Q).Level - 1] + (0.9 * ObjectManager.Player.FlatMagicDamageMod))));
+        }
+    private static void OnDraw(EventArgs args)
+        {
+            if (getCheckBoxItem(drawingsMenu, "ElZilean.Draw.Off"))
             {
                 return;
             }
 
-            if (Menu.Item("ElZilean.Draw.Q").GetValue<Circle>().Active)
+            if (getCheckBoxItem(drawingsMenu, "ElZilean.Draw.Q"))
             {
                 if (Q.Level > 0)
                 {
-                    Render.Circle.DrawCircle(ObjectManager.Player.Position, Q.Range, Color.DodgerBlue);
+                    Render.Circle.DrawCircle(ObjectManager.Player.Position, Q.Range - 100, Color.DodgerBlue);
                 }
             }
         }
@@ -590,7 +536,7 @@
         {
             EloBuddy.Player.IssueOrder(GameObjectOrder.MoveTo, Game.CursorPos);
 
-            if (E.IsReady() && Player.Mana > Menu.Item("ElZilean.Flee.Mana").GetValue<Slider>().Value)
+            if (E.IsReady() && Player.Mana > getSliderItem(fleeMenu, "ElZilean.Flee.Mana"))
             {
                 E.Cast();
             }
@@ -609,52 +555,47 @@
         /// <summary>
         ///     Harass logic
         /// </summary>
-        private static void OnHarass()
+            private static void OnHarass()
         {
-            var target = TargetSelector.GetTarget(Q.Range, TargetSelector.DamageType.Magical);
+            var target = TargetSelector.GetTarget(Q.Range, DamageType.Magical);
             if (target == null)
             {
                 return;
             }
 
-            if (IsActive("ElZilean.Harass.Q") && Q.IsReady() && target.IsValidTarget(Q.Range))
+            if (getCheckBoxItem(harassMenu, "ElZilean.Harass.Q") && Q.IsReady() && target.LSIsValidTarget(Q.Range))
             {
-                QCast(target);
+                var pred = Q.GetPrediction(target);
+                if (pred.HitChance >= EloBuddy.SDK.Enumerations.HitChance.High)
+                {
+                    Q.Cast(pred.CastPosition);
+                }
             }
 
-            if (IsActive("ElZilean.Harass.W") && W.IsReady() && !Q.IsReady())
+            if (getCheckBoxItem(harassMenu, "ElZilean.Harass.W") && W.IsReady() && !Q.IsReady())
             {
                 W.Cast();
-            }
-
-            // Check if target has a bomb
-            var isBombed =
-                HeroManager.Enemies.FirstOrDefault(x => x.HasBuff("ZileanQEnemyBomb") && x.IsValidTarget(Q.Range));
-            if (!isBombed.IsValidTarget())
-            {
-                return;
-            }
-
-            if (IsActive("ElZilean.Harass.W"))
-            {
-                LeagueSharp.Common.Utility.DelayAction.Add(100, () => W.Cast());
             }
         }
 
         private static void OnInterruptableTarget(AIHeroClient sender, Interrupter2.InterruptableTargetEventArgs args)
         {
-            if (sender == null || !sender.IsValidTarget(Q.Range) || !sender.IsEnemy)
+            if (sender == null || !sender.LSIsValidTarget(Q.Range) || !sender.IsEnemy)
             {
                 return;
             }
 
-            if (sender.IsValid && args.DangerLevel == Interrupter2.DangerLevel.High && IsActive("ElZilean.Q.Interrupt"))
+            if (sender.IsValid && args.DangerLevel == Interrupter2.DangerLevel.High && getCheckBoxItem(miscMenu, "ElZilean.Q.Interrupt"))
             {
-                if (Q.IsReady())
+                if (Q.IsReady() && sender.LSIsValidTarget(Q.Range))
                 {
-                    QCast(sender);
+                    var prediction = Q.GetPrediction(sender);
+                    if (prediction.HitChance >= EloBuddy.SDK.Enumerations.HitChance.High)
+                    {
+                        Q.Cast(prediction.CastPosition);
+                    }
                 }
-                LeagueSharp.Common.Utility.DelayAction.Add(100, () => W.Cast());
+                W.Cast();
             }
         }
 
@@ -669,14 +610,14 @@
                 return;
             }
 
-            if (Player.ManaPercent < Menu.Item("ElZilean.laneclear.Mana").GetValue<Slider>().Value)
+            if (Player.ManaPercent < getSliderItem(laneMenu, "ElZilean.laneclear.Mana"))
             {
                 return;
             }
 
             var farmLocation =
                 MinionManager.GetBestCircularFarmLocation(
-                    MinionManager.GetMinions(Q.Range).Select(x => x.ServerPosition.To2D()).ToList(),
+                    MinionManager.GetMinions(Q.Range).Select(x => x.ServerPosition.LSTo2D()).ToList(),
                     Q.Width,
                     Q.Range);
 
@@ -685,18 +626,18 @@
                 return;
             }
 
-            if (IsActive("ElZilean.laneclear.Q") && IsActive("ElZilean.laneclear.QMouse") && Q.IsReady())
+            if (getCheckBoxItem(laneMenu, "ElZilean.laneclear.Q") && getCheckBoxItem(laneMenu, "ElZilean.laneclear.QMouse") && Q.IsReady())
             {
                 Q.Cast(Game.CursorPos);
             }
 
-            if (IsActive("ElZilean.laneclear.Q") && Q.IsReady() && !IsActive("ElZilean.laneclear.QMouse")
+            if (getCheckBoxItem(laneMenu, "ElZilean.laneclear.Q") && Q.IsReady() && !getCheckBoxItem(laneMenu, "ElZilean.laneclear.QMouse")
                 && farmLocation.MinionsHit >= 3)
             {
                 Q.Cast(farmLocation.Position.To3D());
             }
 
-            if (IsActive("ElZilean.laneclear.W") && W.IsReady())
+            if (getCheckBoxItem(laneMenu, "ElZilean.laneclear.W") && W.IsReady())
             {
                 W.Cast();
             }
@@ -715,7 +656,7 @@
                 return;
             }
 
-            if (!Menu.Item($"Initiator{sender.CharData.BaseSkinName}").IsActive())
+            if (!sender.IsAlly || !getCheckBoxItem(initiatorMenu, $"Initiator{sender.CharData.BaseSkinName}"))
             {
                 return;
             }
@@ -725,11 +666,11 @@
 
             if (initiatorChampionSpell != null)
             {
-                if (args.Start.Distance(Player.Position) <= E.Range && args.End.Distance(Player.Position) <= E.Range
+                if (args.Start.LSDistance(Player.Position) <= E.Range && args.End.LSDistance(Player.Position) <= E.Range
                     && HeroManager.Enemies.Any(
                         e =>
-                        e.IsValidTarget(E.Range, false) && !e.IsDead
-                        && (e.Position.Distance(args.End) < 600f || e.Position.Distance(args.Start) < 800f)))
+                        e.LSIsValidTarget(E.Range, false) && !e.IsDead
+                        && (e.Position.LSDistance(args.End) < 600f || e.Position.LSDistance(args.Start) < 800f)))
                 {
                     if (E.IsReady() && E.IsInRange(hero))
                     {
@@ -738,15 +679,6 @@
                 }
             }
         }
-
-        /// <summary>
-        ///     Gets a value indicating whether the combo mode is active.
-        /// </summary>
-        /// <value>
-        ///     <c>true</c> if combo mode is active; otherwise, <c>false</c>.
-        /// </value>
-        public static bool ComboModeActive => Orbwalking.Orbwalker.Instances.Any(x => x.ActiveMode == Orbwalking.OrbwalkingMode.Combo);
-
 
         /// <summary>
         ///     Called when the game updates
@@ -761,96 +693,53 @@
                     return;
                 }
 
-                switch (Orbwalker.ActiveMode)
+
+                if (getCheckBoxItem(comboMenu, "ElZilean.Combo.Focus.Bomb"))
                 {
-                    case Orbwalking.OrbwalkingMode.Combo:
-                        OnCombo();
-                        break;
-                    case Orbwalking.OrbwalkingMode.Mixed:
-                        OnHarass();
-                        break;
-                    case Orbwalking.OrbwalkingMode.LaneClear:
-                        OnLaneclear();
-                        break;
-                }
+                    var passiveTarget = HeroManager.Enemies.FirstOrDefault(x => x.LSIsValidTarget() && x.HasBuff("ZileanQEnemyBomb") && x.LSIsValidTarget(Q.Range + 100));
 
-                if (Menu.Item("Q.Automatically").GetValue<StringList>().SelectedIndex == 1 || (Menu.Item("Q.Automatically").GetValue<StringList>().SelectedIndex == 2 && ComboModeActive))
-                {
-                    if (Menu.Item("Prediction.type").GetValue<StringList>().SelectedIndex == 1)
+                    if (passiveTarget != null)
                     {
-                        var target = Q.GetTarget();
-                        var pred = CPrediction.Circle(Q, target, HitChance.VeryHigh, true);
-                        if (pred.TotalHits >= 2 && Q.IsReady())
-                        {
-                            Q.Cast(pred.CastPosition);
-                            LeagueSharp.Common.Utility.DelayAction.Add(600, () => W.Cast());
-                        }
-                    }
-                    else if (Menu.Item("Prediction.type").GetValue<StringList>().SelectedIndex == 2)
-                    {
-                        var target = Q.GetTarget();
-
-
-                        var predictionInput = new SebbyLib.Prediction.PredictionInput
-                                                  {
-                                                      Aoe = false, Collision = false, Speed = int.MaxValue, Delay = 0.7f,
-                                                      Range = 900f - 100f, From = Player.ServerPosition,
-                                                      Radius = 140f - 25f, Unit = target,
-                                                      Type = SebbyLib.Prediction.SkillshotType.SkillshotCircle
-                                                  };
-
-                        var predictionOutput = SebbyLib.Prediction.Prediction.GetPrediction(predictionInput);
-                        if (predictionOutput.Hitchance == (SebbyLib.Prediction.HitChance)(6)
-                            && predictionOutput.AoeTargetsHitCount >= 2)
-                        {
-                            Q.Cast(predictionOutput.CastPosition);
-                            LeagueSharp.Common.Utility.DelayAction.Add(600, () => W.Cast());
-                        }
+                        Orbwalker.ForcedTarget = (passiveTarget);
                     }
                     else
                     {
-                        var target = Q.GetTarget();
-                        var pred = Q.GetPrediction(target);
-                        if (pred.AoeTargetsHitCount >= 2 && Q.IsReady())
-                        {
-                            Q.Cast(pred.CastPosition);
-                            LeagueSharp.Common.Utility.DelayAction.Add(600, () => W.Cast());
-                        }
+                        Orbwalker.ForcedTarget = (null);
                     }
                 }
 
-                if (IsActive("ElZilean.Combo.Focus.Bomb"))
+                if (Orbwalker.ActiveModesFlags.HasFlag(Orbwalker.ActiveModes.Combo))
                 {
-                    var passiveTarget = HeroManager.Enemies.FirstOrDefault(x => x.IsValidTarget() && x.HasBuff("ZileanQEnemyBomb"));
-                    if (passiveTarget != null)
-                    {
-                        if (passiveTarget.IsValidTarget(Q.Range + 100))
-                        {
-                            TargetSelector.SetTarget(passiveTarget);
-                            Orbwalker.ForceTarget(passiveTarget);
-                        }
-                    }
+                    OnCombo();
+                }
+                if (Orbwalker.ActiveModesFlags.HasFlag(Orbwalker.ActiveModes.Harass))
+                {
+                    OnHarass();
+                }
+                if (Orbwalker.ActiveModesFlags.HasFlag(Orbwalker.ActiveModes.LaneClear) || Orbwalker.ActiveModesFlags.HasFlag(Orbwalker.ActiveModes.JungleClear))
+                {
+                    OnLaneclear();
                 }
 
-                if (IsActive("ElZilean.Ignite"))
+                if (getCheckBoxItem(comboMenu, "ElZilean.Ignite"))
                 {
                     HandleIgnite();
                 }
 
-                if (Menu.Item("ElZilean.DoubleBombMouse").GetValue<KeyBind>().Active)
+                if (getKeyBindItem(comboMenu, "ElZilean.DoubleBombMouse"))
                 {
                     MouseCombo();
                 }
 
-                if (Menu.Item("ElZilean.Flee.Key").GetValue<KeyBind>().Active)
+                if (Orbwalker.ActiveModesFlags.HasFlag(Orbwalker.ActiveModes.Flee))
                 {
                     OnFlee();
                 }
 
-                if (IsActive("ElZilean.E.Slow"))
+                if (getCheckBoxItem(miscMenu, "ElZilean.E.Slow"))
                 {
                     foreach (var slowedAlly in
-                        HeroManager.Allies.Where(x => x.HasBuffOfType(BuffType.Slow) && x.IsValidTarget(Q.Range, false))
+                        HeroManager.Allies.Where(x => x.HasBuffOfType(BuffType.Slow) && x.LSIsValidTarget(Q.Range, false))
                         )
                     {
                         if (E.IsReady() && E.IsInRange(slowedAlly))
@@ -860,42 +749,46 @@
                     }
                 }
 
-                if (IsActive("ElZilean.Q.Stun"))
+                if (getCheckBoxItem(miscMenu, "ElZilean.Q.Stun"))
                 {
                     var target =
                         HeroManager.Enemies.FirstOrDefault(
                             h =>
-                            h.IsValidTarget(Q.Range) && h.HasBuffOfType(BuffType.Slow)
+                            h.LSIsValidTarget(Q.Range) && h.HasBuffOfType(BuffType.Slow)
                             || h.HasBuffOfType(BuffType.Knockup) || h.HasBuffOfType(BuffType.Charm)
                             || h.HasBuffOfType(BuffType.Stun));
 
                     if (target != null)
                     {
-                        if (Q.IsReady() && target.IsValidTarget(Q.Range))
+                        if (Q.IsReady() && target.LSIsValidTarget(Q.Range))
                         {
-                            QCast(target);
-                            LeagueSharp.Common.Utility.DelayAction.Add(100, () => W.Cast());
+                            var prediction = Q.GetPrediction(target);
+                            if (prediction.HitChance >= EloBuddy.SDK.Enumerations.HitChance.High)
+                            {
+                                Q.Cast(prediction.CastPosition);
+                                W.Cast();
+                            }
                         }
                     }
                 }
 
-                foreach (var ally in HeroManager.Allies.Where(a => a.IsValidTarget(R.Range, false)))
+                foreach (var ally in HeroManager.Allies.Where(a => a.LSIsValidTarget(R.Range, false)))
                 {
-                    if (!Menu.Item($"R{ally.ChampionName}").IsActive() || ally.IsRecalling() || ally.IsInvulnerable
-                        || !ally.IsValidTarget(R.Range, false))
+                    if (!getCheckBoxItem(ultMenu, $"R{ally.ChampionName}") || ally.IsRecalling() || ally.IsInvulnerable
+                        || !ally.LSIsValidTarget(R.Range, false))
                     {
                         return;
                     }
 
-                    var enemies = ally.CountEnemiesInRange(750f);
+                    var enemies = ally.LSCountEnemiesInRange(750f);
                     var totalDamage = IncomingDamageManager.GetDamage(ally) * 1.1f;
-                    if (ally.HealthPercent <= Menu.Item("min-health").GetValue<Slider>().Value && !ally.IsDead
-                        && enemies >= 1 && ally.IsValidTarget(R.Range, false))
+                    if (ally.HealthPercent <= getSliderItem(ultMenu, "min-health") && !ally.IsDead
+                        && enemies >= 1 && ally.LSIsValidTarget(R.Range, false))
                     {
-                        if ((int)(totalDamage / ally.Health) > Menu.Item("min-damage").GetValue<Slider>().Value
-                            || ally.HealthPercent < Menu.Item("min-health").GetValue<Slider>().Value)
+                        if ((int)(totalDamage / ally.Health) > getSliderItem(ultMenu, "min-damage")
+                            || ally.HealthPercent < getSliderItem(ultMenu, "min-health"))
                         {
-                            if (ally.Buffs.Any( b => b.DisplayName == "judicatorintervention" || b.DisplayName == "undyingrage" || b.DisplayName == "kindredrnodeathbuff" || b.DisplayName == "zhonyasringshield" || b.DisplayName == "willrevive"))
+                            if (ally.Buffs.Any(b => b.DisplayName == "judicatorintervention" || b.DisplayName == "undyingrage" || b.DisplayName == "kindredrnodeathbuff" || b.DisplayName == "zhonyasringshield" || b.DisplayName == "willrevive"))
                             {
                                 return;
                             }
