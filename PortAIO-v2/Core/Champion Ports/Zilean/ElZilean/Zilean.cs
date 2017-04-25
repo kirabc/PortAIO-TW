@@ -449,6 +449,11 @@ namespace ElZilean
             if (IsActive("ElZilean.Combo.Q"))
             {
                 QCast(target);
+                if (!Q.IsReady())
+                    { 
+                       LeagueSharp.Common.Utility.DelayAction.Add(100, () => W.Cast());
+                       QCast(target);
+                    }
             }
 
             // Check if target has a bomb
