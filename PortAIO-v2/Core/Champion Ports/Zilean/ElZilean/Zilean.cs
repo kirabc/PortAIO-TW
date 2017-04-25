@@ -471,7 +471,7 @@
                     }
                     return;
                 }
-                /*
+                
                 var isBombed2 = HeroManager.Enemies.Find(x => x.HasBuff("ZileanQEnemyBomb") && x.IsValidTarget(Q.Range));
                 if (getCheckBoxItem(comboMenu, "ElZilean.Combo.Q") && Q.IsReady() && target.IsValidTarget(Q.Range) && !isBombed2.IsValidTarget(Q.Range))
                 {
@@ -493,7 +493,7 @@
                         Utility.DelayAction.Add(50, () => Q.Cast(pred.CastPosition));
                     }
                 }
-                */
+                
                 if (!Q.IsReady())
                 {
                     if (QDmg(target) >= target.Health + target.HPRegenRate && W.IsReady())
@@ -505,7 +505,7 @@
                         
                     }
                 }
-                /*
+               
                 // Check if target has a bomb
                 var isBombed = HeroManager.Enemies.Find(x => x.HasBuff("ZileanQEnemyBomb") && x.IsValidTarget(Q.Range));
                 if (!isBombed.IsValidTarget())
@@ -544,7 +544,7 @@
                         E.Cast(closestEnemy);
                     }
                 }
-                /*
+              
                 if (getCheckBoxItem(comboMenu, "ElZilean.Ignite") && isBombed != null)
                 {
                     if (Player.GetSpellSlot("summonerdot") == SpellSlot.Unknown)
@@ -559,7 +559,7 @@
                         }
                     }
                 }
-                */
+              
             }
         }
 
