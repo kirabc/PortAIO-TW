@@ -445,7 +445,25 @@ namespace ElZilean
             {
                 return;
             }
+            
+            if (IsActive("ElZilean.Combo.E") && E.IsReady())
+            {
+                if (Player.GetEnemiesInRange(E.Range).Any())
+                {
+                    var closestEnemy =
+                        Player.GetEnemiesInRange(E.Range)
+                            .OrderByDescending(h => (h.PhysicalDamageDealtPlayer + h.MagicDamageDealtPlayer))
+                            .FirstOrDefault();
 
+                    if (closestEnemy == null || closestEnemy.HasBuffOfType(BuffType.Stun))
+                    {
+                        return;
+                    }
+
+                    E.Cast(closestEnemy);
+                }
+            }
+            
             if (IsActive("ElZilean.Combo.Q"))
             {
                 QCast(target);
@@ -487,24 +505,6 @@ namespace ElZilean
                 }
 
                 W.Cast();
-            }
-
-            if (IsActive("ElZilean.Combo.E") && E.IsReady())
-            {
-                if (Player.GetEnemiesInRange(E.Range).Any())
-                {
-                    var closestEnemy =
-                        Player.GetEnemiesInRange(E.Range)
-                            .OrderByDescending(h => (h.PhysicalDamageDealtPlayer + h.MagicDamageDealtPlayer))
-                            .FirstOrDefault();
-
-                    if (closestEnemy == null || closestEnemy.HasBuffOfType(BuffType.Stun))
-                    {
-                        return;
-                    }
-
-                    E.Cast(closestEnemy);
-                }
             }
 
             if (IsActive("ElZilean.Ignite") && isBombed != null)
