@@ -439,134 +439,127 @@
         /// </summary>
         private static void OnCombo()
         {
-           var target = TargetSelector.GetTarget(Q.Range, TargetSelector.DamageType.Magical);
-            if (target == null)
-            {
-                return;
-            }
-
-            if (IsActive("ElZilean.Combo.E") && E.IsReady())
-            {
-                if (Player.GetEnemiesInRange(E.Range).Any())
+           {
+                var target = TargetSelector.GetTarget(Q.Range, DamageType.Magical);
+                var pred666 = Q.GetPrediction(target);
+                
+                if (getCheckBoxItem(comboMenu, "ElZilean.Combo.E") && E.IsReady() && !Q.IsReady())
                 {
-                    var closestEnemy =
-                        Player.GetEnemiesInRange(E.Range)
-                            .OrderByDescending(h => (h.PhysicalDamageDealtPlayer + h.MagicDamageDealtPlayer))
-                            .FirstOrDefault();
+                    if (Player.GetEnemiesInRange(E.Range).Any())
+                    {
+                        var closestEnemy =
+                            Player.GetEnemiesInRange(E.Range)
+                                .OrderByDescending(h => (h.PhysicalDamageDealtPlayer + h.MagicDamageDealtPlayer))
+                                .FirstOrDefault();
 
-                    if (closestEnemy == null || closestEnemy.HasBuffOfType(BuffType.Stun))
+                        if (closestEnemy == null || closestEnemy.HasBuffOfType(BuffType.Stun))
+                        {
+                            return;
+                        }
+
+                        E.Cast(closestEnemy);
+                    }
+                }
+                
+                if (getCheckBoxItem(comboMenu, "ElZilean.Combo.Q") && target.IsValidTarget(Q.Range))
+                {
+                    Q.Cast(pred666.CastPosition);
+                    if (!Q.IsReady())
+                    { 
+                          W.Cast();
+                          Q.Cast(pred666.CastPosition);
+                    }
+                    return;
+                }
+                /*
+                var isBombed2 = HeroManager.Enemies.Find(x => x.HasBuff("ZileanQEnemyBomb") && x.IsValidTarget(Q.Range));
+                if (getCheckBoxItem(comboMenu, "ElZilean.Combo.Q") && Q.IsReady() && target.IsValidTarget(Q.Range) && !isBombed2.IsValidTarget(Q.Range))
+                {
+                    var pred = Q.GetPrediction(target);
+                    if (QDmg(target) >= target.Health + target.HPRegenRate && pred.HitChance >= EloBuddy.SDK.Enumerations.HitChance.High && !isBombed2.IsValidTarget())
+                    {
+                        Q.Cast(pred.CastPosition);
+                    }
+                    if (pred.HitChance >= EloBuddy.SDK.Enumerations.HitChance.High && !isBombed2.IsValidTarget())
+                    {
+                        Q.Cast(pred.CastPosition);
+                    }
+                }
+                if (getCheckBoxItem(comboMenu, "ElZilean.Combo.Q") && Q.IsReady() && isBombed2.IsValidTarget(Q.Range) && isBombed2.IsValidTarget())
+                {
+                    var pred = Q.GetPrediction(isBombed2);
+                    if (pred.HitChance >= EloBuddy.SDK.Enumerations.HitChance.High)
+                    {
+                        Utility.DelayAction.Add(50, () => Q.Cast(pred.CastPosition));
+                    }
+                }
+                */
+                if (!Q.IsReady())
+                {
+                    if (QDmg(target) >= target.Health + target.HPRegenRate && W.IsReady())
+                    {
+                        if (E.IsReady())
+                        {
+                            E.Cast();
+                        }
+                        
+                    }
+                }
+                /*
+                // Check if target has a bomb
+                var isBombed = HeroManager.Enemies.Find(x => x.HasBuff("ZileanQEnemyBomb") && x.IsValidTarget(Q.Range));
+                if (!isBombed.IsValidTarget())
+                {
+                    return;
+                }
+                if (isBombed != null && isBombed.IsValidTarget(Q.Range))
+                {
+                    if (Q.IsReady())
                     {
                         return;
                     }
-
-                    E.Cast(closestEnemy);
-                }
-            }
-            
-            
-            if (IsActive("ElZilean.Combo.Q"))
-            {
-                QCast(target);
-            }
-
-            if (IsActive("ElZilean.Combo.W") && IsActive("ElZilean.Combo.W2") && W.IsReady() && !Q.IsReady())
-            {
-                if (HeroManager.Enemies.Any(x => x.Health > Q.GetDamage(x) && x.IsValidTarget(Q.Range)))
-                {
-                    return;
-                }
-
-                W.Cast();
-                QCast(target);
-            }
-                   
-            if (IsActive("ElZilean.Ignite") && isBombed != null)
-            {
-                if (Player.GetSpellSlot("summonerdot") == SpellSlot.Unknown)
-                {
-                    return;
-                }
-
-                if (Q.GetDamage(isBombed) + IgniteSpell.GetDamage(isBombed) > isBombed.Health)
-                {
-                    if (isBombed.IsValidTarget(Q.Range))
+                    if (getCheckBoxItem(comboMenu, "ElZilean.Combo.W"))
                     {
-                        Player.Spellbook.CastSpell(IgniteSpell.Slot, isBombed);
+                        W.Cast();
                     }
                 }
-            }
-            
-             // Check if target has a bomb
-            var isBombed = HeroManager.Enemies.Find(x => x.HasBuff("ZileanQEnemyBomb") && x.IsValidTarget(Q.Range));
-            if (!isBombed.IsValidTarget())
-            {
-                return;
-            }
-
-            if (isBombed != null && isBombed.IsValidTarget(Q.Range))
-            {
-                if (Q.Instance.CooldownExpires - Game.Time < 3)
+                if (getCheckBoxItem(comboMenu, "ElZilean.Combo.W") && getCheckBoxItem(comboMenu, "ElZilean.Combo.W2") && W.IsReady() && !Q.IsReady())
                 {
-                    return;
-                }
-
-                TargetSelector.SetTarget(isBombed);
-                Orbwalker.ForceTarget(isBombed);
-
-                if (IsActive("ElZilean.Combo.W"))
-                {
+                    if (!Q.IsReady())
                     W.Cast();
                 }
-            }
-        }
-
-        /// <summary>
-        ///     Cast the Q
-        /// </summary>
-        /// <param name="target"></param>
-        private static void QCast(AIHeroClient target)
-        {
-            if (!Q.IsReady() || !target.IsValidTarget(Q.Range))
-            {
-                return;
-            }
-
-            if (Menu.Item("Prediction.type").GetValue<StringList>().SelectedIndex == 0)
-            {
-                var pred = Q.GetPrediction(target);
-                if (pred.Hitchance >= GetHitchance())
+                
+                if (getCheckBoxItem(comboMenu, "ElZilean.Combo.E") && E.IsReady() && !Q.IsReady())
                 {
-                    Q.Cast(pred.CastPosition);
+                    if (Player.GetEnemiesInRange(E.Range).Any())
+                    {
+                        var closestEnemy =
+                            Player.GetEnemiesInRange(E.Range)
+                                .OrderByDescending(h => (h.PhysicalDamageDealtPlayer + h.MagicDamageDealtPlayer))
+                                .FirstOrDefault();
+                        if (closestEnemy == null || closestEnemy.HasBuffOfType(BuffType.Stun))
+                        {
+                            return;
+                        }
+                        E.Cast(closestEnemy);
+                    }
                 }
-            }
-            if (Menu.Item("Prediction.type").GetValue<StringList>().SelectedIndex == 1)
-            {
-                var pred = CPrediction.Circle(Q, target, HitChance.VeryHigh, true);
-                if (pred.TotalHits > 0)
+                /*
+                if (getCheckBoxItem(comboMenu, "ElZilean.Ignite") && isBombed != null)
                 {
-                    Q.Cast(pred.CastPosition);
+                    if (Player.GetSpellSlot("summonerdot") == SpellSlot.Unknown)
+                    {
+                        return;
+                    }
+                    if (QDmg(isBombed) + IgniteSpell.GetDamage(isBombed) > isBombed.Health)
+                    {
+                        if (isBombed.IsValidTarget(Q.Range))
+                        {
+                            Player.Spellbook.CastSpell(IgniteSpell.Slot, isBombed);
+                        }
+                    }
                 }
-            }
-            else if (Menu.Item("Prediction.type").GetValue<StringList>().SelectedIndex == 2)
-            {
-                var predictionInput = new SebbyLib.Prediction.PredictionInput
-                {
-                    Aoe = false,
-                    Collision = false,
-                    Speed = int.MaxValue,
-                    Delay = 0.7f,
-                    Range = 900f - 100f,
-                    From = Player.ServerPosition,
-                    Radius = 140f - 25f,
-                    Unit = target,
-                    Type = SebbyLib.Prediction.SkillshotType.SkillshotCircle
-                };
-
-                var predictionOutput = SebbyLib.Prediction.Prediction.GetPrediction(predictionInput);
-                if (predictionOutput.Hitchance == (SebbyLib.Prediction.HitChance)(6))
-                {
-                    Q.Cast(predictionOutput.CastPosition);
-                }
+                */
             }
         }
 
