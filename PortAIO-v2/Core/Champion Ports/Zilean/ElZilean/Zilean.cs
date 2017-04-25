@@ -473,9 +473,11 @@ namespace ElZilean
                        QCast(target);
                     }
             }
-
+            
+           
             // Check if target has a bomb
             var isBombed = HeroManager.Enemies.Find(x => x.HasBuff("ZileanQEnemyBomb") && x.IsValidTarget(Q.Range));
+            /*
             if (!isBombed.IsValidTarget())
             {
                 return;
@@ -522,6 +524,7 @@ namespace ElZilean
                     }
                 }
             }
+            */
         }
 
         /// <summary>
