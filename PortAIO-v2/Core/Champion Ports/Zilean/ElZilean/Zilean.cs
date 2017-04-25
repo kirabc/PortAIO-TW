@@ -424,15 +424,15 @@ namespace ElZilean
 
         private static void MouseCombo()
         {
-           if (getCheckBoxItem(comboMenu, "ElZilean.Combo.Q"))
+           if (IsActive("ElZilean.Combo.Q") && Q.IsReady())
             {
                 Q.Cast(Game.CursorPos);
-                 if (!Q.IsReady())
+                if (!Q.IsReady())
                     { 
-                        W.Cast();
+                       LeagueSharp.Common.Utility.DelayAction.Add(100, () => W.Cast());
                     }
-                    return;
-             }
+                
+            }
         }
 
         /// <summary>
