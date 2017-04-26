@@ -424,12 +424,15 @@ namespace ElZilean
 
         private static void MouseCombo()
         {
-             Q.Cast(Game.CursorPos);
-             if (!Q.IsReady())
-            { 
-                LeagueSharp.Common.Utility.DelayAction.Add(100, () => W.Cast());
+             if (IsActive("ElZilean.Combo.Q"))
+            {
                 Q.Cast(Game.CursorPos);
+                 if (!Q.IsReady())
+                { 
+                LeagueSharp.Common.Utility.DelayAction.Add(100, () => W.Cast());
+                }
             }
+            
         }
 
         /// <summary>
