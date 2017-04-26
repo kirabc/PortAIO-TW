@@ -432,7 +432,6 @@ namespace ElZilean
                 LeagueSharp.Common.Utility.DelayAction.Add(100, () => W.Cast());
                 }
             }
-            
         }
 
         /// <summary>
